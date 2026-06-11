@@ -8,6 +8,15 @@ INCREMENT_AMOUNT = 150_000
 UPDATE_INTERVAL = 0.5  # seconds
 
 def run_simulator():
+    if not isinstance(FILE_PATH, str) or not FILE_PATH:
+        raise ValueError("FILE_PATH must be a non-empty string")
+    if not isinstance(MAX_TOKENS, (int, float)) or MAX_TOKENS <= 0:
+        raise ValueError("MAX_TOKENS must be a strictly positive number")
+    if not isinstance(INCREMENT_AMOUNT, (int, float)) or INCREMENT_AMOUNT <= 0:
+        raise ValueError("INCREMENT_AMOUNT must be a strictly positive number")
+    if not isinstance(UPDATE_INTERVAL, (int, float)) or UPDATE_INTERVAL <= 0:
+        raise ValueError("UPDATE_INTERVAL must be a strictly positive number")
+
     print(f"Starting simulator. Updating {FILE_PATH} every {UPDATE_INTERVAL} seconds...")
     current_tokens = 0
     
@@ -19,10 +28,15 @@ def run_simulator():
             "tokens": current_tokens
         }
         
-        with open(FILE_PATH, 'w') as f:
-            json.dump(data, f)
-            
-        print(f"Simulator wrote: {current_tokens:,} tokens")
+        try:
+            with open(FILE_PATH, 'w') as f:
+                json.dump(data, f)
+            print(f"Simulator wrote: {current_tokens:,} tokens")
+        except OSError as e:
+            print(f"OS error writing to {FILE_PATH}: {e}")
+        except Exception as e:
+            print(f"Error writing to {FILE_PATH}: {e}")
+
         current_tokens += INCREMENT_AMOUNT
         time.sleep(UPDATE_INTERVAL)
         
