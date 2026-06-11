@@ -2,6 +2,7 @@ import json
 import time
 import os
 import logging
+from typing import Union
 
 MAX_TOKENS = 2_000_000
 POLL_INTERVAL = 0.2  # seconds
@@ -12,7 +13,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("monitor")
 
-def monitor_budget(file_path='daily_budget.json'):
+
+def monitor_budget(file_path: Union[str, os.PathLike] = 'daily_budget.json') -> None:
     """
     Monitors a JSON file for token budget usage and alerts when thresholds are crossed.
     

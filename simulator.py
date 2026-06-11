@@ -14,7 +14,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("simulator")
 
-def run_simulator():
+
+def run_simulator() -> None:
     """
     Simulates token budget usage by periodically writing incrementing token counts
     to a JSON file. Stops when token usage exceeds the maximum allowed tokens.
