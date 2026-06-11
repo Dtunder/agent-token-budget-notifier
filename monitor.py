@@ -1,14 +1,16 @@
 import json
 import time
 import os
+import logging
 
 MAX_TOKENS = 2_000_000
 POLL_INTERVAL = 0.2  # seconds
 
-# ANSI color codes
-YELLOW = '\033[93m'
-RED = '\033[91m'
-RESET = '\033[0m'
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("monitor")
 
 def monitor_budget(file_path='daily_budget.json'):
     """
@@ -22,7 +24,7 @@ def monitor_budget(file_path='daily_budget.json'):
     if not isinstance(MAX_TOKENS, (int, float)) or MAX_TOKENS <= 0:
         raise ValueError("MAX_TOKENS must be a strictly positive number")
 
-    print(f"Monitoring {file_path} for token budget usage (Max: {MAX_TOKENS})...")
+    logger.info(f"Monitoring {file_path} for token budget usage (Max: {MAX_TOKENS})...")
     
     alerted_80 = False
     alerted_90 = False
@@ -43,7 +45,7 @@ def monitor_budget(file_path='daily_budget.json'):
                         data = json.load(f)
                     
                     if not isinstance(data, dict):
-                        print(f"Error: JSON data must be a dictionary, got {type(data).__name__}")
+                        logger.error(f"JSON data must be a dictionary, got {type(data).__name__}")
                         time.sleep(POLL_INTERVAL)
                         continue
                     
@@ -53,27 +55,29 @@ def monitor_budget(file_path='daily_budget.json'):
                     
                     tokens = data.get('tokens', 0)
                     if not isinstance(tokens, (int, float)):
-                        print(f"Error: tokens must be a number, got {type(tokens).__name__}")
+                        logger.error(f"tokens must be a number, got {type(tokens).__name__}")
                         time.sleep(POLL_INTERVAL)
                         continue
 
                     if tokens < 0:
-                        print(f"Error: tokens cannot be negative, got {tokens}")
+                        logger.error(f"tokens cannot be negative, got {tokens}")
                         time.sleep(POLL_INTERVAL)
                         continue
 
                     # Reset alerts if the day changes
                     if day != current_day:
+                        if current_day is not None:
+                            logger.info(f"Day changed from {current_day} to {day}. Resetting alerts.")
                         current_day = day
                         alerted_80 = False
                         alerted_90 = False
 
                     if tokens >= threshold_90 and not alerted_90:
-                        print(f"{RED}CRITICAL ALERT: Token usage for {day} crossed 90%! ({tokens:,}/{MAX_TOKENS:,} tokens){RESET}")
+                        logger.critical(f"Token usage for {day} crossed 90%! ({tokens:,}/{MAX_TOKENS:,} tokens)")
                         alerted_90 = True
                         alerted_80 = True # Ensure 80% isn't triggered if we skipped it
                     elif tokens >= threshold_80 and not alerted_80:
-                        print(f"{YELLOW}WARNING: Token usage for {day} crossed 80%! ({tokens:,}/{MAX_TOKENS:,} tokens){RESET}")
+                        logger.warning(f"Token usage for {day} crossed 80%! ({tokens:,}/{MAX_TOKENS:,} tokens)")
                         alerted_80 = True
                     
         except json.JSONDecodeError:
@@ -81,10 +85,10 @@ def monitor_budget(file_path='daily_budget.json'):
             # Reset last_mtime so it tries again
             last_mtime = 0
         except OSError as e:
-            print(f"OS error accessing {file_path}: {e}")
+            logger.error(f"OS error accessing {file_path}: {e}")
             last_mtime = 0
         except Exception as e:
-            print(f"Error reading {file_path}: {e}")
+            logger.error(f"Error reading {file_path}: {e}")
             last_mtime = 0
 
         time.sleep(POLL_INTERVAL)

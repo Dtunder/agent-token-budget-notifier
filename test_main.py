@@ -22,35 +22,37 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.exists', return_value=True)
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1000000}')
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_no_alert_below_80(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
-        with self.assertRaises(StopLoopException):
-            monitor.monitor_budget('dummy_path.json')
-        output = mock_stdout.getvalue()
-        self.assertNotIn("WARNING", output)
-        self.assertNotIn("CRITICAL", output)
+    def test_no_alert_below_80(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        with self.assertLogs('monitor', level='INFO') as log:
+            with self.assertRaises(StopLoopException):
+                monitor.monitor_budget('dummy_path.json')
+        log_output = "\n".join(log.output)
+        self.assertNotIn("WARNING", log_output)
+        self.assertNotIn("CRITICAL", log_output)
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1700000}')
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_alert_80_percent(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
-        with self.assertRaises(StopLoopException):
-            monitor.monitor_budget('dummy_path.json')
-        output = mock_stdout.getvalue()
-        self.assertIn("WARNING: Token usage for 2023-01-01 crossed 80%", output)
+    def test_alert_80_percent(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        with self.assertLogs('monitor', level='INFO') as log:
+            with self.assertRaises(StopLoopException):
+                monitor.monitor_budget('dummy_path.json')
+        log_output = "\n".join(log.output)
+        self.assertIn("Token usage for 2023-01-01 crossed 80%", log_output)
+        self.assertIn("WARNING:", log_output)
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1900000}')
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_alert_90_percent(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
-        with self.assertRaises(StopLoopException):
-            monitor.monitor_budget('dummy_path.json')
-        output = mock_stdout.getvalue()
-        self.assertIn("CRITICAL ALERT: Token usage for 2023-01-01 crossed 90%", output)
+    def test_alert_90_percent(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        with self.assertLogs('monitor', level='INFO') as log:
+            with self.assertRaises(StopLoopException):
+                monitor.monitor_budget('dummy_path.json')
+        log_output = "\n".join(log.output)
+        self.assertIn("Token usage for 2023-01-01 crossed 90%", log_output)
+        self.assertIn("CRITICAL:", log_output)
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
@@ -65,13 +67,13 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.exists', return_value=True)
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', side_effect=PermissionError("Permission denied"))
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_other_exception(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
-        # Should catch Exception, print error, hit sleep, raise StopLoopException
-        with self.assertRaises(StopLoopException):
-            monitor.monitor_budget('dummy_path.json')
-        output = mock_stdout.getvalue()
-        self.assertIn("OS error accessing dummy_path.json", output)
+    def test_other_exception(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        with self.assertLogs('monitor', level='ERROR') as log:
+            # Should catch Exception, print error, hit sleep, raise StopLoopException
+            with self.assertRaises(StopLoopException):
+                monitor.monitor_budget('dummy_path.json')
+        log_output = "\n".join(log.output)
+        self.assertIn("OS error accessing dummy_path.json", log_output)
 
     def test_invalid_file_path_type(self):
         with self.assertRaises(TypeError):
@@ -86,37 +88,36 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.exists', return_value=True)
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='[]')
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_data_not_dict(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
-        with self.assertRaises(StopLoopException):
-            monitor.monitor_budget('dummy_path.json')
-        output = mock_stdout.getvalue()
-        self.assertIn("Error: JSON data must be a dictionary", output)
+    def test_data_not_dict(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        with self.assertLogs('monitor', level='ERROR') as log:
+            with self.assertRaises(StopLoopException):
+                monitor.monitor_budget('dummy_path.json')
+        log_output = "\n".join(log.output)
+        self.assertIn("JSON data must be a dictionary", log_output)
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": "abc"}')
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_tokens_not_number(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
-        with self.assertRaises(StopLoopException):
-            monitor.monitor_budget('dummy_path.json')
-        output = mock_stdout.getvalue()
-        self.assertIn("Error: tokens must be a number", output)
+    def test_tokens_not_number(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        with self.assertLogs('monitor', level='ERROR') as log:
+            with self.assertRaises(StopLoopException):
+                monitor.monitor_budget('dummy_path.json')
+        log_output = "\n".join(log.output)
+        self.assertIn("tokens must be a number", log_output)
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": -500}')
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_tokens_negative(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
-        with self.assertRaises(StopLoopException):
-            monitor.monitor_budget('dummy_path.json')
-        output = mock_stdout.getvalue()
-        self.assertIn("Error: tokens cannot be negative", output)
+    def test_tokens_negative(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        with self.assertLogs('monitor', level='ERROR') as log:
+            with self.assertRaises(StopLoopException):
+                monitor.monitor_budget('dummy_path.json')
+        log_output = "\n".join(log.output)
+        self.assertIn("tokens cannot be negative", log_output)
 
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_reset_on_new_day(self, mock_stdout):
+    def test_reset_on_new_day(self):
         # Provide multiple files with patch to mock the states over time
         # The loop reads: 
         #   1. Day 1: 1.7m (80%) -> hits sleep -> next iter
@@ -145,12 +146,15 @@ class TestMonitor(unittest.TestCase):
              patch('monitor.os.path.exists', return_value=True), \
              patch('monitor.os.path.getmtime', side_effect=[1, 2, 3]), \
              patch('builtins.open', side_effect=mock_open_func):
-            with self.assertRaises(StopLoopException):
-                monitor.monitor_budget('dummy_path.json')
+            with self.assertLogs('monitor', level='INFO') as log:
+                with self.assertRaises(StopLoopException):
+                    monitor.monitor_budget('dummy_path.json')
                 
-        output = mock_stdout.getvalue()
-        self.assertIn("WARNING: Token usage for 2023-01-01 crossed 80%", output)
-        self.assertIn("CRITICAL ALERT: Token usage for 2023-01-02 crossed 90%", output)
+        log_output = "\n".join(log.output)
+        self.assertIn("Token usage for 2023-01-01 crossed 80%", log_output)
+        self.assertIn("WARNING:", log_output)
+        self.assertIn("Token usage for 2023-01-02 crossed 90%", log_output)
+        self.assertIn("CRITICAL:", log_output)
 
 class TestSimulator(unittest.TestCase):
     @patch('simulator.FILE_PATH', '')
@@ -176,22 +180,22 @@ class TestSimulator(unittest.TestCase):
     @patch('simulator.time.sleep', side_effect=StopLoopException)
     @patch('simulator.FILE_PATH', 'dummy_sim_path.json')
     @patch('builtins.open', side_effect=OSError("Disk full"))
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_simulator_os_error_writing(self, mock_stdout, mock_open_file, mock_sleep):
-        with self.assertRaises(StopLoopException):
-            simulator.run_simulator()
-        output = mock_stdout.getvalue()
-        self.assertIn("OS error writing to dummy_sim_path.json", output)
+    def test_simulator_os_error_writing(self, mock_open_file, mock_sleep):
+        with self.assertLogs('simulator', level='ERROR') as log:
+            with self.assertRaises(StopLoopException):
+                simulator.run_simulator()
+        log_output = "\n".join(log.output)
+        self.assertIn("OS error writing to dummy_sim_path.json", log_output)
 
     @patch('simulator.time.sleep', side_effect=StopLoopException)
     @patch('simulator.FILE_PATH', 'dummy_sim_path.json')
     @patch('builtins.open', side_effect=Exception("Unknown Error"))
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_simulator_unknown_error_writing(self, mock_stdout, mock_open_file, mock_sleep):
-        with self.assertRaises(StopLoopException):
-            simulator.run_simulator()
-        output = mock_stdout.getvalue()
-        self.assertIn("Error writing to dummy_sim_path.json", output)
+    def test_simulator_unknown_error_writing(self, mock_open_file, mock_sleep):
+        with self.assertLogs('simulator', level='ERROR') as log:
+            with self.assertRaises(StopLoopException):
+                simulator.run_simulator()
+        log_output = "\n".join(log.output)
+        self.assertIn("Error writing to dummy_sim_path.json", log_output)
 
     @patch('simulator.time.sleep')
     @patch('simulator.FILE_PATH', 'dummy_sim_path.json')
@@ -260,7 +264,6 @@ class TestSimulator(unittest.TestCase):
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
-
 
 if __name__ == '__main__':
     unittest.main()

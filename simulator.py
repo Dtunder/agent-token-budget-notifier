@@ -1,11 +1,18 @@
 import json
 import time
 from datetime import datetime
+import logging
 
 FILE_PATH = 'daily_budget.json'
 MAX_TOKENS = 2_000_000
 INCREMENT_AMOUNT = 150_000
 UPDATE_INTERVAL = 0.5  # seconds
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("simulator")
 
 def run_simulator():
     """
@@ -21,7 +28,7 @@ def run_simulator():
     if not isinstance(UPDATE_INTERVAL, (int, float)) or UPDATE_INTERVAL <= 0:
         raise ValueError("UPDATE_INTERVAL must be a strictly positive number")
 
-    print(f"Starting simulator. Updating {FILE_PATH} every {UPDATE_INTERVAL} seconds...")
+    logger.info(f"Starting simulator. Updating {FILE_PATH} every {UPDATE_INTERVAL} seconds...")
     current_tokens = 0
     
     # Pre-calculate the maximum allowed token count to limit the while loop condition
@@ -38,16 +45,16 @@ def run_simulator():
         try:
             with open(FILE_PATH, 'w') as f:
                 json.dump(data, f)
-            print(f"Simulator wrote: {current_tokens:,} tokens")
+            logger.info(f"Simulator wrote: {current_tokens:,} tokens")
         except OSError as e:
-            print(f"OS error writing to {FILE_PATH}: {e}")
+            logger.error(f"OS error writing to {FILE_PATH}: {e}")
         except Exception as e:
-            print(f"Error writing to {FILE_PATH}: {e}")
+            logger.error(f"Error writing to {FILE_PATH}: {e}")
 
         current_tokens += INCREMENT_AMOUNT
         time.sleep(UPDATE_INTERVAL)
         
-    print("Simulator finished.")
+    logger.info("Simulator finished.")
 
 if __name__ == '__main__':
     run_simulator()
