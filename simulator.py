@@ -8,6 +8,10 @@ INCREMENT_AMOUNT = 150_000
 UPDATE_INTERVAL = 0.5  # seconds
 
 def run_simulator():
+    """
+    Simulates token budget usage by periodically writing incrementing token counts
+    to a JSON file. Stops when token usage exceeds the maximum allowed tokens.
+    """
     if not isinstance(FILE_PATH, str) or not FILE_PATH:
         raise ValueError("FILE_PATH must be a non-empty string")
     if not isinstance(MAX_TOKENS, (int, float)) or MAX_TOKENS <= 0:
@@ -20,7 +24,10 @@ def run_simulator():
     print(f"Starting simulator. Updating {FILE_PATH} every {UPDATE_INTERVAL} seconds...")
     current_tokens = 0
     
-    while current_tokens <= MAX_TOKENS + INCREMENT_AMOUNT:
+    # Pre-calculate the maximum allowed token count to limit the while loop condition
+    limit_tokens = MAX_TOKENS + INCREMENT_AMOUNT
+    
+    while current_tokens <= limit_tokens:
         today = datetime.now().strftime("%Y-%m-%d")
         
         data = {

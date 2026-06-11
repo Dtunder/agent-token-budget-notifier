@@ -11,6 +11,12 @@ RED = '\033[91m'
 RESET = '\033[0m'
 
 def monitor_budget(file_path='daily_budget.json'):
+    """
+    Monitors a JSON file for token budget usage and alerts when thresholds are crossed.
+    
+    Optimized to only read the file when it has been modified (via mtime) and precomputes
+    alert thresholds to save CPU cycles.
+    """
     if not isinstance(file_path, (str, os.PathLike)):
         raise TypeError(f"file_path must be a string or path-like object, got {type(file_path).__name__}")
     if not isinstance(MAX_TOKENS, (int, float)) or MAX_TOKENS <= 0:
@@ -21,56 +27,65 @@ def monitor_budget(file_path='daily_budget.json'):
     alerted_80 = False
     alerted_90 = False
     current_day = None
+    last_mtime = 0
+    
+    # Precompute thresholds
+    threshold_80 = MAX_TOKENS * 0.8
+    threshold_90 = MAX_TOKENS * 0.9
 
     while True:
         try:
             if os.path.exists(file_path):
-                with open(file_path, 'r') as f:
-                    data = json.load(f)
-                
-                if not isinstance(data, dict):
-                    print(f"Error: JSON data must be a dictionary, got {type(data).__name__}")
-                    time.sleep(POLL_INTERVAL)
-                    continue
-                
-                day = data.get('day')
-                if day is not None:
-                    day = str(day)
-                
-                tokens = data.get('tokens', 0)
-                if not isinstance(tokens, (int, float)):
-                    print(f"Error: tokens must be a number, got {type(tokens).__name__}")
-                    time.sleep(POLL_INTERVAL)
-                    continue
+                current_mtime = os.path.getmtime(file_path)
+                if current_mtime > last_mtime:
+                    last_mtime = current_mtime
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                    
+                    if not isinstance(data, dict):
+                        print(f"Error: JSON data must be a dictionary, got {type(data).__name__}")
+                        time.sleep(POLL_INTERVAL)
+                        continue
+                    
+                    day = data.get('day')
+                    if day is not None:
+                        day = str(day)
+                    
+                    tokens = data.get('tokens', 0)
+                    if not isinstance(tokens, (int, float)):
+                        print(f"Error: tokens must be a number, got {type(tokens).__name__}")
+                        time.sleep(POLL_INTERVAL)
+                        continue
 
-                if tokens < 0:
-                    print(f"Error: tokens cannot be negative, got {tokens}")
-                    time.sleep(POLL_INTERVAL)
-                    continue
+                    if tokens < 0:
+                        print(f"Error: tokens cannot be negative, got {tokens}")
+                        time.sleep(POLL_INTERVAL)
+                        continue
 
-                # Reset alerts if the day changes
-                if day != current_day:
-                    current_day = day
-                    alerted_80 = False
-                    alerted_90 = False
-                
-                usage_percent = tokens / MAX_TOKENS
+                    # Reset alerts if the day changes
+                    if day != current_day:
+                        current_day = day
+                        alerted_80 = False
+                        alerted_90 = False
 
-                if usage_percent >= 0.9 and not alerted_90:
-                    print(f"{RED}CRITICAL ALERT: Token usage for {day} crossed 90%! ({tokens:,}/{MAX_TOKENS:,} tokens){RESET}")
-                    alerted_90 = True
-                    alerted_80 = True # Ensure 80% isn't triggered if we skipped it
-                elif usage_percent >= 0.8 and not alerted_80:
-                    print(f"{YELLOW}WARNING: Token usage for {day} crossed 80%! ({tokens:,}/{MAX_TOKENS:,} tokens){RESET}")
-                    alerted_80 = True
+                    if tokens >= threshold_90 and not alerted_90:
+                        print(f"{RED}CRITICAL ALERT: Token usage for {day} crossed 90%! ({tokens:,}/{MAX_TOKENS:,} tokens){RESET}")
+                        alerted_90 = True
+                        alerted_80 = True # Ensure 80% isn't triggered if we skipped it
+                    elif tokens >= threshold_80 and not alerted_80:
+                        print(f"{YELLOW}WARNING: Token usage for {day} crossed 80%! ({tokens:,}/{MAX_TOKENS:,} tokens){RESET}")
+                        alerted_80 = True
                     
         except json.JSONDecodeError:
             # File might be in the middle of being written, ignore temporarily
-            pass
+            # Reset last_mtime so it tries again
+            last_mtime = 0
         except OSError as e:
             print(f"OS error accessing {file_path}: {e}")
+            last_mtime = 0
         except Exception as e:
             print(f"Error reading {file_path}: {e}")
+            last_mtime = 0
 
         time.sleep(POLL_INTERVAL)
 

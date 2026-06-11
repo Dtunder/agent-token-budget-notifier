@@ -20,9 +20,10 @@ class TestMonitor(unittest.TestCase):
             
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
+    @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1000000}')
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_no_alert_below_80(self, mock_stdout, mock_open_file, mock_exists, mock_sleep):
+    def test_no_alert_below_80(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
         output = mock_stdout.getvalue()
@@ -31,9 +32,10 @@ class TestMonitor(unittest.TestCase):
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
+    @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1700000}')
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_alert_80_percent(self, mock_stdout, mock_open_file, mock_exists, mock_sleep):
+    def test_alert_80_percent(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
         output = mock_stdout.getvalue()
@@ -41,9 +43,10 @@ class TestMonitor(unittest.TestCase):
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
+    @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1900000}')
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_alert_90_percent(self, mock_stdout, mock_open_file, mock_exists, mock_sleep):
+    def test_alert_90_percent(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
         output = mock_stdout.getvalue()
@@ -51,17 +54,19 @@ class TestMonitor(unittest.TestCase):
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
+    @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='invalid json')
-    def test_json_decode_error(self, mock_open_file, mock_exists, mock_sleep):
+    def test_json_decode_error(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
         # Should catch JSONDecodeError and pass, hitting the sleep and raising StopLoopException
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
+    @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', side_effect=PermissionError("Permission denied"))
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_other_exception(self, mock_stdout, mock_open_file, mock_exists, mock_sleep):
+    def test_other_exception(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
         # Should catch Exception, print error, hit sleep, raise StopLoopException
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
@@ -79,9 +84,10 @@ class TestMonitor(unittest.TestCase):
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
+    @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='[]')
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_data_not_dict(self, mock_stdout, mock_open_file, mock_exists, mock_sleep):
+    def test_data_not_dict(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
         output = mock_stdout.getvalue()
@@ -89,9 +95,10 @@ class TestMonitor(unittest.TestCase):
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
+    @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": "abc"}')
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_tokens_not_number(self, mock_stdout, mock_open_file, mock_exists, mock_sleep):
+    def test_tokens_not_number(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
         output = mock_stdout.getvalue()
@@ -99,9 +106,10 @@ class TestMonitor(unittest.TestCase):
 
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=True)
+    @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": -500}')
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_tokens_negative(self, mock_stdout, mock_open_file, mock_exists, mock_sleep):
+    def test_tokens_negative(self, mock_stdout, mock_open_file, mock_mtime, mock_exists, mock_sleep):
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
         output = mock_stdout.getvalue()
@@ -135,6 +143,7 @@ class TestMonitor(unittest.TestCase):
 
         with patch('monitor.time.sleep', side_effect=side_effect_sleep), \
              patch('monitor.os.path.exists', return_value=True), \
+             patch('monitor.os.path.getmtime', side_effect=[1, 2, 3]), \
              patch('builtins.open', side_effect=mock_open_func):
             with self.assertRaises(StopLoopException):
                 monitor.monitor_budget('dummy_path.json')
