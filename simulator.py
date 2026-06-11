@@ -18,6 +18,16 @@ def run_simulator():
     """
     Simulates token budget usage by periodically writing incrementing token counts
     to a JSON file. Stops when token usage exceeds the maximum allowed tokens.
+    
+    The function uses constants defined at the module level:
+        - `FILE_PATH`: The path to the JSON file to write to.
+        - `MAX_TOKENS`: The maximum number of tokens before simulation stops.
+        - `INCREMENT_AMOUNT`: The number of tokens to add in each step.
+        - `UPDATE_INTERVAL`: The delay (in seconds) between each write operation.
+        
+    Raises:
+        ValueError: If any of the constants are invalid (e.g., negative intervals,
+                    empty file paths, etc.).
     """
     if not isinstance(FILE_PATH, str) or not FILE_PATH:
         raise ValueError("FILE_PATH must be a non-empty string")

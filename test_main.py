@@ -9,12 +9,20 @@ import monitor
 import simulator
 
 class StopLoopException(Exception):
+    """Exception used to gracefully exit the infinite while loops in tests."""
     pass
 
 class TestMonitor(unittest.TestCase):
+    """
+    Test suite for the `monitor_budget` function in `monitor.py`.
+    
+    These tests use mocking extensively to simulate file reads, writes,
+    time delays, and exceptions to ensure full coverage of the monitor logic.
+    """
     @patch('monitor.time.sleep', side_effect=StopLoopException)
     @patch('monitor.os.path.exists', return_value=False)
     def test_file_not_exists(self, mock_exists, mock_sleep):
+        """Test behavior when the daily budget JSON file does not exist."""
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
             
@@ -23,6 +31,7 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1000000}')
     def test_no_alert_below_80(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        """Test that no alerts are triggered if token usage is below 80%."""
         with self.assertLogs('monitor', level='INFO') as log:
             with self.assertRaises(StopLoopException):
                 monitor.monitor_budget('dummy_path.json')
@@ -35,6 +44,7 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1700000}')
     def test_alert_80_percent(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        """Test that a WARNING alert is triggered if token usage is >= 80%."""
         with self.assertLogs('monitor', level='INFO') as log:
             with self.assertRaises(StopLoopException):
                 monitor.monitor_budget('dummy_path.json')
@@ -47,6 +57,7 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": 1900000}')
     def test_alert_90_percent(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        """Test that a CRITICAL alert is triggered if token usage is >= 90%."""
         with self.assertLogs('monitor', level='INFO') as log:
             with self.assertRaises(StopLoopException):
                 monitor.monitor_budget('dummy_path.json')
@@ -59,6 +70,7 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='invalid json')
     def test_json_decode_error(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        """Test handling of invalid JSON decoding."""
         # Should catch JSONDecodeError and pass, hitting the sleep and raising StopLoopException
         with self.assertRaises(StopLoopException):
             monitor.monitor_budget('dummy_path.json')
@@ -68,6 +80,7 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', side_effect=PermissionError("Permission denied"))
     def test_other_exception(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        """Test that other exceptions (like PermissionError) are gracefully caught and logged."""
         with self.assertLogs('monitor', level='ERROR') as log:
             # Should catch Exception, print error, hit sleep, raise StopLoopException
             with self.assertRaises(StopLoopException):
@@ -76,11 +89,13 @@ class TestMonitor(unittest.TestCase):
         self.assertIn("OS error accessing dummy_path.json", log_output)
 
     def test_invalid_file_path_type(self):
+        """Test validation of invalid file path type."""
         with self.assertRaises(TypeError):
             monitor.monitor_budget(123)
 
     @patch('monitor.MAX_TOKENS', -1)
     def test_invalid_max_tokens(self):
+        """Test validation of invalid maximum tokens configuration."""
         with self.assertRaises(ValueError):
             monitor.monitor_budget('dummy.json')
 
@@ -89,6 +104,7 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='[]')
     def test_data_not_dict(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        """Test handling of JSON files that do not contain a dictionary."""
         with self.assertLogs('monitor', level='ERROR') as log:
             with self.assertRaises(StopLoopException):
                 monitor.monitor_budget('dummy_path.json')
@@ -100,6 +116,7 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": "abc"}')
     def test_tokens_not_number(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        """Test that string values for tokens are rejected and logged."""
         with self.assertLogs('monitor', level='ERROR') as log:
             with self.assertRaises(StopLoopException):
                 monitor.monitor_budget('dummy_path.json')
@@ -111,6 +128,7 @@ class TestMonitor(unittest.TestCase):
     @patch('monitor.os.path.getmtime', return_value=1)
     @patch('builtins.open', new_callable=mock_open, read_data='{"day": "2023-01-01", "tokens": -500}')
     def test_tokens_negative(self, mock_open_file, mock_mtime, mock_exists, mock_sleep):
+        """Test that negative token values are rejected and logged."""
         with self.assertLogs('monitor', level='ERROR') as log:
             with self.assertRaises(StopLoopException):
                 monitor.monitor_budget('dummy_path.json')
@@ -118,6 +136,7 @@ class TestMonitor(unittest.TestCase):
         self.assertIn("tokens cannot be negative", log_output)
 
     def test_reset_on_new_day(self):
+        """Test that alert flags are reset when the date changes."""
         # Provide multiple files with patch to mock the states over time
         # The loop reads: 
         #   1. Day 1: 1.7m (80%) -> hits sleep -> next iter
@@ -157,23 +176,30 @@ class TestMonitor(unittest.TestCase):
         self.assertIn("CRITICAL:", log_output)
 
 class TestSimulator(unittest.TestCase):
+    """
+    Test suite for the `run_simulator` function in `simulator.py`.
+    """
     @patch('simulator.FILE_PATH', '')
     def test_invalid_file_path(self):
+        """Test validation of an empty file path."""
         with self.assertRaises(ValueError):
             simulator.run_simulator()
             
     @patch('simulator.MAX_TOKENS', -1)
     def test_invalid_max_tokens(self):
+        """Test validation of invalid max tokens configuration."""
         with self.assertRaises(ValueError):
             simulator.run_simulator()
             
     @patch('simulator.INCREMENT_AMOUNT', 0)
     def test_invalid_increment_amount(self):
+        """Test validation of invalid token increment configuration."""
         with self.assertRaises(ValueError):
             simulator.run_simulator()
 
     @patch('simulator.UPDATE_INTERVAL', -1)
     def test_invalid_update_interval(self):
+        """Test validation of invalid simulator update interval."""
         with self.assertRaises(ValueError):
             simulator.run_simulator()
 
@@ -181,6 +207,7 @@ class TestSimulator(unittest.TestCase):
     @patch('simulator.FILE_PATH', 'dummy_sim_path.json')
     @patch('builtins.open', side_effect=OSError("Disk full"))
     def test_simulator_os_error_writing(self, mock_open_file, mock_sleep):
+        """Test that OSErrors during file writes are caught and logged."""
         with self.assertLogs('simulator', level='ERROR') as log:
             with self.assertRaises(StopLoopException):
                 simulator.run_simulator()
@@ -191,6 +218,7 @@ class TestSimulator(unittest.TestCase):
     @patch('simulator.FILE_PATH', 'dummy_sim_path.json')
     @patch('builtins.open', side_effect=Exception("Unknown Error"))
     def test_simulator_unknown_error_writing(self, mock_open_file, mock_sleep):
+        """Test that unexpected exceptions during file writes are caught and logged."""
         with self.assertLogs('simulator', level='ERROR') as log:
             with self.assertRaises(StopLoopException):
                 simulator.run_simulator()
@@ -200,6 +228,7 @@ class TestSimulator(unittest.TestCase):
     @patch('simulator.time.sleep')
     @patch('simulator.FILE_PATH', 'dummy_sim_path.json')
     def test_run_simulator(self, mock_sleep):
+        """Test the normal execution loop of the token budget simulator."""
         # We need to test the file writing.
         # Use a temporary file to avoid polluting the workspace
         # but mock time.sleep so we don't wait for UPDATE_INTERVAL seconds.

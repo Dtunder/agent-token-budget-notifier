@@ -18,6 +18,14 @@ def monitor_budget(file_path='daily_budget.json'):
     
     Optimized to only read the file when it has been modified (via mtime) and precomputes
     alert thresholds to save CPU cycles.
+    
+    Args:
+        file_path (str, optional): The path to the JSON file containing the daily token usage.
+                                   Defaults to 'daily_budget.json'.
+                                   
+    Raises:
+        TypeError: If `file_path` is not a string or path-like object.
+        ValueError: If `MAX_TOKENS` is not a strictly positive number.
     """
     if not isinstance(file_path, (str, os.PathLike)):
         raise TypeError(f"file_path must be a string or path-like object, got {type(file_path).__name__}")
